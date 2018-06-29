@@ -1,0 +1,1096 @@
+<<packages, results = 'hide', echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE, results = 'hide'>>=
+knit_hooks$set(crop=hook_pdfcrop)
+opts_chunk$set(fig.path='figure/', echo = FALSE, message = FALSE, warning = FALSE,
+ fig.width=6, fig.height=6/1.8, fig.align = 'center', tidy = FALSE, comment = NA,
+ cache = FALSE, cache.path = 'cache/', out.width = '5.5in', crop = TRUE)
+
+options(digits = 3, stringsAsFactors = FALSE, width = 150)
+
+library(ggplot2)
+library(gridExtra)
+library(tidyverse)
+library(nlme)
+library(mvtnorm)
+
+# ggplot theme and palette settings
+theme_set(theme_bw(base_size = 12))
+cbbPalette <- c('#0072B2', '#D55E00', '#CC79A7', '#000000', '#E69F00', '#56B4E9', '#009E73', '#F0E442')
+scale_colour_discrete <- function(...) scale_colour_manual(..., values=cbbPalette)
+scale_fill_discrete <- function(...) scale_fill_manual(..., values=cbbPalette)
+@
+
+
+\documentclass[aspectratio=169]{beamer}\usepackage[]{graphicx}\usepackage[]{color}
+
+\usepackage{alltt}
+\usetheme{Frankfurt}
+\usecolortheme{dove}  
+\usefonttheme{professionalfonts}
+  
+% \usepackage[
+%   activate={true,nocompatibility},
+%   final,
+%   tracking=true,
+%   factor=1200,
+%   stretch=50,
+%   shrink=0
+%   ]{microtype}
+  
+\useinnertheme{circles}
+\usepackage{mathpazo}
+\usepackage{lmodern}
+% \usepackage[T1]{fontenc}
+% \usepackage{librecaslon}
+% \usepackage[scaled=.95]{helvet}% uncomment these if required
+% \usepackage{courier}
+% \usepackage{overpic}
+% \usepackage{CJKutf8} % for japanese
+% \renewcommand{\sfdefault}{lmss}
+% \renewcommand{\ttdefault}{lmtt}
+\usepackage{url}
+\usepackage{tikz} 
+\usepackage{animate} 
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{mathtools} % for floor/ceiling functions
+\usepackage{bm} % for floor/ceiling functions
+% \RequirePackage[pdftex, pdfpagemode = none,
+%    pdftoolbar = true, pdffitwindow = true,
+%    pdfcenterwindow = true]{hyperref}
+   
+\providecommand{\shadeRow}{\rowcolor[gray]{0.75}}
+
+\DeclareMathOperator{\Dist}{Dist}
+\DeclareMathOperator{\sd}{SD}
+\DeclareMathOperator{\se}{SE}
+\DeclareMathOperator{\var}{var}
+\DeclareMathOperator{\cov}{cov}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\Unif}{Unif}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
+
+\DeclareMathOperator{\age}{age}
+\DeclareMathOperator{\dAge}{dAge}
+\DeclareMathOperator{\apoe}{apoe}
+\DeclareMathOperator{\edu}{edu}
+\DeclareMathOperator{\sex}{sex}
+\DeclareMathOperator{\Active}{Active}
+\DeclareMathOperator{\adas}{ADAS}
+
+\newcommand{\PHM}{\textsc{PHM}}
+\newcommand{\MLM}{\textsc{MLM}}
+\newcommand{\LMM}{\textsc{LMM}}
+\newcommand{\PH}{\textsc{PH}}
+\newcommand{\LM}{\textsc{LM}}
+\newcommand{\cor}{\textsc{Cor}}
+\newcommand{\HR}{\textsc{HR}}
+\newcommand{\MCI}{\textsc{MCI}}
+\newcommand{\MCIab}{\textsc{MCI-A}\beta}
+\newcommand{\ADAScog}{\textsc{ADAS-Cog}}
+\newcommand{\CDRsb}{\textsc{CDR-SB}}
+\newcommand{\FAQ}{\textsc{FAQ}}
+\newcommand{\GEE}{\textsc{GEE}}
+
+\newcommand{\APOE}{\emph{APOE}$\varepsilon$4 }
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\foot}{\let\thefootnote\relax\footnotetext}
+
+\definecolor{BrickRed}{RGB}{150,22,11}
+\definecolor{DarkBlue}{RGB}{0,0,205}
+\definecolor{light-gray}{gray}{0.9}
+\definecolor{uscyellow}{HTML}{E9A000}
+\definecolor{uscred}{HTML}{990000}
+
+\makeatother
+
+% \title{Clinical Trials Methods Workshop\\
+% AD Clinical Trial Simulation Concepts}
+\title{Alzheimer's Clinical Trial Simulation Concepts}
+\author{Michael Donohue}
+\institute{
+Alzheimer's Therapeutic Research Institute\\
+Department of Neurology\\
+University of Southern California}
+
+\date{AAIC Educational Workshop: Contemporary Issues in Clinical Trials Methods\\ July 20, 2018}
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+
+% remove navigation symbols
+\usenavigationsymbolstemplate{}
+\setbeamertemplate{footline}[frame number]
+
+\begin{document}
+
+\setbeamertemplate{background}{
+  \begin{minipage}[h]{6in}
+     \vspace*{2.75in} \leavevmode \\
+     \hspace*{0.25in}\includegraphics[height=0.5in]{watermark.pdf} \leavevmode \\
+     \vspace*{-0.31in} \leavevmode \\
+     \hspace*{0.25in}\textcolor{light-gray}{{\tiny USC ATRI}}
+  \end{minipage}
+}
+
+\maketitle
+
+\setbeamertemplate{background}{}
+
+\begin{frame}[fragile]  
+\frametitle{Learning objectives}
+\begin{itemize}
+\item ``Analytic'' power/sample size calculations
+  \begin{itemize}
+  \item two-sample $t$-test
+  \item Mixed Model of Repeated Measures (MMRM)
+  \item Time-to-event (TTE)
+  \item Missing data
+  \end{itemize}
+\item Simulated power/sample size
+  \begin{itemize}
+  \item Why simulate?
+  \item What goes in the oven?
+  \item What comes out?
+  \end{itemize}
+\end{itemize}
+All of the \R code for this session is available from
+\href{http://github.com/atrihub/AAIC2018ClinicalTrialMethods}{github.com/atrihub/AAIC2018ClinicalTrialMethods}
+\end{frame}
+
+\section[$t$-test]{Two sample $t$-test}
+
+\begin{frame}[fragile]  
+\frametitle{Testing group diff. in 3-year ADAS-Cog change (simulated MCI data)}
+<<>>=
+set.seed(20180111)
+dd <- data.frame(
+    group = 'placebo',
+    effect = 'significant effect',
+    ADAS.ch = round(rnorm(n=285, mean=3.75, sd=8.5), digits=0)) %>% 
+  bind_rows(data.frame(
+    group = 'active',
+    effect = 'significant effect',
+    ADAS.ch = round(rnorm(n=285, mean=1.75, sd=8.5), digits=0))) %>% 
+  bind_rows(data.frame(
+    group = 'placebo',
+    effect = 'no effect',
+    ADAS.ch = round(rnorm(n=285, mean=3.75, sd=8.5), digits=0))) %>% 
+  bind_rows(data.frame(
+    group = 'active',
+    effect = 'no effect',
+    ADAS.ch = round(rnorm(n=285, mean=3.75, sd=8.5), digits=0))) %>%
+  mutate(
+    group = factor(group, levels = c('placebo', 'active')),
+    effect = factor(effect, levels = c('no effect', 'significant effect')))
+
+t0 <- with(subset(dd, effect=='no effect'), t.test(ADAS.ch ~ group)) 
+t1 <- with(subset(dd, effect=='significant effect'), t.test(ADAS.ch ~ group)) 
+
+ann_text <- data.frame(
+    group = unique(sort(dd$group))[1],
+    effect = unique(sort(dd$effect))[1],
+    ADAS.ch = -28,
+    label = paste0("Mean group diff.:", round(with(t0, estimate[2] - estimate[1]), 2), "\n", 'p=', round(t0$p.value, 3))) %>% 
+  bind_rows(data.frame(
+    group = unique(sort(dd$group))[1],
+    effect = unique(sort(dd$effect))[2],
+    effect = unique(dd$effect)[2],
+    ADAS.ch = -28,
+    label = paste0("Mean group diff.:", round(with(t1, estimate[2] - estimate[1]), 2), "\n", 'p<0.001')))
+
+ggplot(dd, aes(x=group, y=ADAS.ch, color=group)) +
+  geom_violin(aes(fill=group), alpha=.1) +
+  geom_boxplot(outlier.colour=NA, width=.5) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.3, alpha=0.1) +
+  facet_wrap(~effect) +
+  ylab('3-year ADAS-cog change') +
+  xlab('') +
+  geom_text(data=ann_text, aes(label=label), nudge_x=0.1) +
+  ylim(c(-35, 30)) +
+  theme(legend.position='none')
+
+@
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Hypothesis testing and power calculation review}
+\begin{itemize}
+  \item \underline{\emph{Power}}: probability of ``success,'' i.e. concluding a treatment effect when one actually exists (typically 80-90\%)
+  \item \underline{\emph{Type I error} ($\alpha$)}: probability of concluding a treatment effect when \textbf{none} actually exists (typically 5\%)
+\end{itemize}
+\bigskip
+Power/sample size calculations solve for one of the following:
+\begin{enumerate}
+\item Assumed treatment effect ($\delta$) (``minimum clinically meaningful difference'')
+\item Standard deviation of treatment effect ($\sigma$)
+\item Type I error ($\alpha$)
+\item Power
+\item Sample size
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{START SIMPLE!}
+\begin{columns}
+\begin{column}{0.55\textwidth}
+  For two-sample $t$-test, required $n$ per group is:
+  \begin{align*}
+  n & = 2\left(\frac{z_{1-\alpha/2} + z_{\textrm{power}}}{\delta/\sigma}\right)^2\\
+  \end{align*}
+  For $\alpha=5$\% and power$=80$\%, simplifies to:
+  \begin{align*}
+  n & = 2\left(\frac{1.96 + 0.84}{\delta/\sigma}\right)^2 \\
+    & \approx \frac{16}{(\delta/\sigma)^2}\\
+  \end{align*}
+  van Belle's \emph{Statistical Rules of Thumb}
+\end{column}
+\begin{column}{0.45\textwidth}  %%<--- here
+    \begin{center}
+     \includegraphics[width=0.75\textwidth]{vanBelle.jpg}      
+     \end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Back to MCI example}
+How many subjects are required to detect a $\delta$=2 point difference in ADAS-Cog change assuming $\sigma$=8.5, two-sided $\alpha$=5\%, and power=80\%?\\
+\bigskip
+ANSWER: $n\approx16/(2/8.5)^2=289$ subjects per group
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{$\ldots$ the more exact answer}
+How many subjects are required to detect a $\delta$=2 point difference in ADAS-Cog change assuming $\sigma$=8.5, two-sided $\alpha$=5\%, and power=80\%?\\
+
+<<echo=TRUE>>=
+power.t.test(delta=2, sd=8.5, power=0.80, sig.level=0.05)
+@
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Power curves for each parameter}
+<<>>=
+power <- seq(0.25, 0.95, by=0.01)
+delta <- unlist(lapply(power, function(p) power.t.test(power=p, sd=8.5, sig.level=0.05, n=285)$delta))
+SD <- unlist(lapply(power, function(p) power.t.test(power=p, delta=2, sig.level=0.05, n=285, sd=NULL)$sd))
+N <- unlist(lapply(power, function(p) power.t.test(power=p, delta=2, sd=8.5, sig.level=0.05)$n))
+alpha <- unlist(lapply(power, function(p) power.t.test(power=p, delta=2, sd=8.5, sig.level=NULL, n=285)$sig.level))
+p1 <- qplot(delta, power, geom='line', ylim=c(0.25,1)) + geom_vline(xintercept=2, linetype='dashed') + geom_hline(yintercept=0.80, linetype='dashed')
+p2 <- qplot(SD, power, geom='line', ylim=c(0.25,1)) + geom_vline(xintercept=8.5, linetype='dashed') + geom_hline(yintercept=0.80, linetype='dashed')
+p3 <- qplot(N, power, geom='line', ylim=c(0.25,1)) + geom_vline(xintercept=285, linetype='dashed') + geom_hline(yintercept=0.80, linetype='dashed')
+p4 <- qplot(alpha, power, geom='line', ylim=c(0.25,1)) + geom_vline(xintercept=0.05, linetype='dashed') + geom_hline(yintercept=0.80, linetype='dashed')
+marrangeGrob(list(p1, p2, p3, p4), nrow=2, ncol=2, top='')
+@
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{A basic simulation for power}
+<<echo=FALSE>>=
+set.seed(20180111)
+pvals <- rep(NA, 100000)
+@
+<<echo=TRUE, eval=FALSE>>=
+for(i in 1:100000){
+  placebo <- rnorm(n=285, mean=0, sd=8.5)
+  active <- rnorm(n=285, mean=-2, sd=8.5)
+  pvals[i] <- t.test(placebo, active)$p.value
+}
+sum(pvals<0.05)/100000
+@
+<<eval=FALSE>>=
+save(pvals, file='ttest_power.rdata')
+@
+<<>>=
+load('ttest_power.rdata')
+cat('Power:', sum(pvals<0.05)/100000)
+@
+Confirms that $n=$285 per group provides 80\% power to detect a $\delta$=2 point difference in ADAS-Cog change assuming $\sigma$=8.5 and two-sided $\alpha$=5\%
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{A basic simulation for Type I error}
+<<echo=FALSE>>=
+set.seed(20180111)
+pvals <- rep(NA, 100000)
+@
+<<echo=TRUE, eval=FALSE>>=
+for(i in 1:100000){
+  placebo <- rnorm(n=285, mean=0, sd=8.5)
+  active <- rnorm(n=285, mean=0, sd=8.5)
+  pvals[i] <- t.test(placebo, active)$p.value
+}
+sum(pvals<0.05)/100000
+@
+<<eval=FALSE>>=
+save(pvals, file='ttest_alpha.rdata')
+@
+<<>>=
+load('ttest_alpha.rdata')
+cat('Type I error:', sum(pvals<0.05)/100000)
+@
+Confirms that our Type I error is 5\%
+\end{frame}
+
+
+\begin{frame}[fragile]  
+\frametitle{Why simulate? Continuous vs integer values}
+\begin{itemize}
+  \item If simulations and calculation agree, why bother with simulations?
+  \item Let's say we are worried that $t$-test calculation assumes continuous data, but ADAS is integer valued. Simulations show we shouldn't be too worried$\ldots$
+\end{itemize}
+<<echo=FALSE>>=
+set.seed(20180111)
+pvals <- rep(NA, 100000)
+@
+<<echo=TRUE, eval=FALSE>>=
+for(i in 1:100000){
+  placebo <- round(rnorm(n=285, mean=0, sd=8.5), digits=0)
+  active <- round(rnorm(n=285, mean=-2, sd=8.5), digits=0)
+  pvals[i] <- t.test(placebo, active)$p.value
+}
+sum(pvals<0.05)/100000
+@
+<<eval=FALSE>>=
+save(pvals, file='ttest_round_power.rdata')
+@
+<<>>=
+load('ttest_round_power.rdata')
+cat('Power:', sum(pvals<0.05)/100000)
+@
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Simulated Type I error with integer valued ADAS-Cog}
+<<echo=FALSE>>=
+set.seed(20180111)
+pvals <- rep(NA, 100000)
+@
+<<echo=TRUE, eval=FALSE>>=
+for(i in 1:100000){
+  placebo <- round(rnorm(n=285, mean=0, sd=8.5), digits=0)
+  active <- round(rnorm(n=285, mean=0, sd=8.5), digits=0)
+  pvals[i] <- t.test(placebo, active)$p.value
+}
+sum(pvals<0.05)/100000
+@
+<<eval=FALSE>>=
+save(pvals, file='ttest_round_alpha.rdata')
+@
+<<>>=
+load('ttest_round_alpha.rdata')
+cat('Type I error:', sum(pvals<0.05)/100000)
+@
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Why simulate? To dichotomize or not to dichotomize$\ldots$}
+Let's say we are interested in \textbf{dichotomizing} ADAS-Cog change to consider the proportion of subjects who experience a \textbf{2 point improvement} or better in ADAS-Cog.\\
+
+Is this a good idea?\\
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Power for continuous vs dichotomous outcome}
+<<echo=FALSE>>=
+set.seed(20180111)
+pvals <- rep(NA, 10000)
+pvalsBinary <- rep(NA, 10000)
+@
+{\footnotesize
+<<echo=TRUE, eval=FALSE>>=
+cutPoint <- -2 
+for(i in 1:10000){
+  dd <- data.frame(
+      ADAS.ch = round(rnorm(n=285, mean=0, sd=8.5), digits=0),
+      group = 'placebo') %>% 
+    bind_rows(data.frame(
+      ADAS.ch = round(rnorm(n=285, mean=-2, sd=8.5), digits=0),
+      group = 'active'))
+  pvals[i] <- with(dd, t.test(ADAS.ch~group))$p.value
+  pvalsBinary[i] <- with(dd, chisq.test(ADAS.ch<=cutPoint, group))$p.value
+}
+sum(pvalsBinary<0.05)/10000
+sum(pvals<0.05)/10000
+@
+<<eval=FALSE>>=
+save(pvals, pvalsBinary, file='ttest_binary_power.rdata')
+@
+<<>>=
+load('ttest_binary_power.rdata')
+cat('Power for binary outcome:', sum(pvalsBinary<0.05)/10000)
+cat('Power for continuous outcome:', sum(pvals<0.05)/10000)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{DO NOT DICHOTOMIZE UNLESS ABSOLUTELY NECESSARY!}
+\begin{columns}
+\begin{column}{0.55\textwidth}
+  \begin{itemize}
+    \item van Belle's \emph{Statistical Rules of Thumb} rule 4.11
+    \item Testing for group differences requires $\pi/2=1.57$ times more subjects when you dichotomize compared to two-sample $t$-test\\ (e.g. $n=100$ vs $n=64$;\\ or $n=447$ vs $n=285$)
+  \end{itemize} 
+\end{column}
+\begin{column}{0.45\textwidth}  %%<--- here
+    \begin{center}
+     \includegraphics[width=0.75\textwidth]{vanBelle.jpg}      
+     \end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{With $n=1.57\times285=447$ per group:}
+<<echo=FALSE>>=
+set.seed(20180111)
+pvals <- rep(NA, 10000)
+pvalsBinary <- rep(NA, 10000)
+@
+{\footnotesize
+<<echo=TRUE, eval=FALSE>>=
+cutPoint <- -2 
+for(i in 1:10000){
+  dd <- data.frame(
+      ADAS.ch = round(rnorm(n=447, mean=0, sd=8.5), digits=0),
+      group = 'placebo') %>% 
+    bind_rows(data.frame(
+      ADAS.ch = round(rnorm(n=447, mean=-2, sd=8.5), digits=0),
+      group = 'active'))
+  pvalsBinary[i] <- with(dd, chisq.test(ADAS.ch<=cutPoint, group))$p.value
+  pvals[i] <- with(dd, t.test(ADAS.ch~group))$p.value
+}
+sum(pvals<0.05)/10000
+sum(pvalsBinary<0.05)/10000
+@
+<<eval=FALSE>>=
+save(pvals, pvalsBinary, file='ttest_binary_large_power.rdata')
+@
+<<>>=
+load('ttest_binary_large_power.rdata')
+cat('Power for binary outcome:', sum(pvalsBinary<0.05)/10000)
+cat('Power for continuous outcome:', sum(pvals<0.05)/10000)
+@
+}
+\end{frame}
+
+\section[MMRM]{Mixed model of repeated measures}
+
+<<echo=FALSE, eval=FALSE>>=
+####################################################
+### pilot estimates are from a model fit to ADNI ###
+####################################################
+# library(ADNIMERGE) # available from loni.usc.edu
+fit_adni_lme <- lme(ADAS13 ~ PTGENDER + scale(AGE,scale=FALSE) + M, data=adnimerge,
+  random=~M|RID, subset = M<=36 & DX.bl=='LMCI', na.action=na.omit)
+summary(fit_adni)
+
+adni_mci <- filter(adnimerge, M!=0 & M<=36 & !is.na(ADAS13) & !is.na(ADAS13.bl) & DX.bl=='LMCI') %>%
+  arrange(M) %>%
+  mutate(
+    ADAS13.ch = ADAS13 - ADAS13.bl,
+    m = as.factor(M),
+    visNo = as.numeric(m))
+
+fit_adni_mmrm <- gls(ADAS13.ch ~ -1 + ADAS13.bl + PTGENDER + scale(AGE, scale=FALSE) + m, 
+  data=adni_mci,
+  correlation = corSymm(form = ~ visNo | RID),
+  weights = varIdent(form = ~ 1 | m) )
+summary(fit_adni_mmrm)
+
+fit_adni_mmrm2 <- gls(ADAS13.ch ~ -1 + scale(ADAS13.bl, scale=FALSE) + m, 
+  data=adni_mci,
+  correlation = corCompSymm(form = ~ visNo | RID),
+  weights = varIdent(form = ~ 1 | m) )
+summary(fit_adni_mmrm2)
+
+with(filter(adni_mci, M==36), summary(ADAS13.ch))
+@
+
+<<mmrm_parameters_mean, echo=FALSE>>=
+Beta <- c(
+     'ADAS13.bl'=-0.07, # ADAS13 change per unit baseline ADAS13
+            'm6'= 0.90, # worsening at month 6 in pbo
+           'm12'= 1.30, # worsening at month 12 in pbo
+           'm18'= 2.90, # worsening at month 18 in pbo
+           'm24'= 4.25, # worsening at month 24 in pbo
+           'm30'= 5.50, # worsening at month 30 in pbo
+           'm36'= 6.70, # worsening at month 36 in pbo
+     'm6:active'=-0.05, # relative improvement at month 6 with treatment
+    'm12:active'=-0.10, # relative improvement at month 12 with treatment
+    'm18:active'=-0.50, # relative improvement at month 18 with treatment
+    'm24:active'=-1.00, # relative improvement at month 24 with treatment
+    'm30:active'=-1.50, # relative improvement at month 30 with treatment
+    'm36:active'=-2.00) # relative improvement at month 36 with treatment
+@
+
+<<mmrm_parameters_other, echo=FALSE>>=
+# other design parameters
+followup <- c(6, 12, 18, 24, 30, 36)
+n <- 485 # per group
+attrition_rate <- c(0.00, 0.15, 0.15, 0.20, 0.25, 0.30)
+
+# var-cov parameters:
+# standard deviation scale parameter:
+SD <- 5
+# hetergeneous variance weights:
+vv <- diag(c(1.00, 1.00, 1.25, 1.30, 1.50, 2.00))
+# correlation matrix
+cc <- matrix(0.60, nrow=length(followup), ncol=length(followup))
+diag(cc) <- 1
+@
+
+<<mmrm_design>>=
+# set seed so that simulation is reproducible
+set.seed(20170714)
+
+# simulate subject specific data
+subjects <- data.frame(
+  id = 1:(2*n),
+  ADAS13.bl = round(rnorm(2*n, mean=0, sd=18.7)),
+  active = c(rep(0,n), rep(1,n)),
+  censor = rep(
+    x = c(followup, max(followup)+1),
+    times = c(ceiling(c(attrition_rate[1], diff(attrition_rate, lag=1))*n),
+      n - sum(ceiling(c(attrition_rate[1], diff(attrition_rate, lag=1))*n)))))
+
+design <- right_join(subjects,
+  expand.grid(id = 1:(2*n), month=followup)) %>%
+  mutate(
+    group = factor(active, 0:1, c('placebo', 'active')),
+    missing = ifelse(month>=censor, 1, 0),
+    m = as.factor(month),
+    visNo = as.numeric(m)) %>%
+  arrange(id, month)
+pboTerms <- c('ADAS13.bl', 'm6', 'm12', 'm18', 'm24', 'm30', 'm36')
+design <- cbind(design, model.matrix(~ -1+m, data = design)) %>% 
+  mutate(
+    ADAS13.ch.noResidual = (model.matrix(~ ADAS13.bl+
+       m6+m12+m18+m24+m30+m36+
+      (m6+m12+m18+m24+m30+m36):active, 
+      data = design)[, names(Beta)] %*% Beta)[,1],
+    ADAS13.ch.noResidual.noTxEffect = (model.matrix(~ ADAS13.bl+
+       m6+m12+m18+m24+m30+m36, 
+      data = design)[, pboTerms] %*% Beta[pboTerms])[,1],
+    m = as.factor(month),
+    visNo = as.numeric(m))
+@
+
+\begin{frame}[fragile]  
+\frametitle{Mixed Model of Repeated Measures (MMRM)}
+<<>>=
+trial <- arrange(design, id, month) %>%    ## WARNING: data must be properly sorted by subject and time 
+  mutate(                                  ## prior to appending residuals
+    residual = as.numeric(t(
+      rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+    ADAS13.ch = round(ADAS13.ch.noResidual + residual, digits = 0)) %>%
+  filter(!missing)
+@
+
+<<spaghetti_plot, fig.width=6, fig.height=6/2>>=
+ggplot(filter(trial, id %in% sample(1:(2*n),size=100)), aes(x=month, y=ADAS13.ch, group=id, color=group)) +
+  geom_line(alpha=0.25) +
+#  geom_smooth(aes(group = NULL), method = 'loess', size = 2) +
+  scale_x_continuous(breaks=c(0,followup), lim=c(0,36)) +
+  theme(legend.position=c(0.1, 0.8)) +
+  ylab('ADAS13 change from baseline')
+@
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Power/sample size calculations for MMRM}
+Familiar parameters:
+\begin{itemize}
+  \item Mean of treatment effect ($\delta$)
+  \item Standard deviation of treatment effect ($\sigma$)
+  \item Type I error (typically $\alpha=5$\%)
+  \item Power (typically 80 or 90\%)
+  \item Sample size
+\end{itemize}
+New parameters
+\begin{itemize}
+  \item Visit schedule
+  \item Attrition per visit
+  \item Visit-to-visit correlations
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Let's consider a hypothetical MCI trial$\ldots$}
+\begin{itemize}
+  \item Two groups: placebo vs active (hypothetical)
+  \item Alzheimer's Disease Assessment Scale (ADAS-Cog) assessed at 0, 6, 12, $\ldots$, 36 months
+  \item Placebo group behaves like ADNI participants
+  \item A treatment which slows ADAS-Cog progression by \textbf{2 points at 36 months}
+  \item Assume:
+  \begin{itemize}
+    \item Attrition per visit: 5, 10, 15, 20, 25, 30\%
+    \item Visit-to-visit correlation $\rho=0.6$
+    \item Residual standard deviation at last visit $\sigma=10$
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Start simple}
+Take simple $t$-test calculations and inflate sample size for attrition, i.e. divide by $(1-30\%)$ ($n$ per group):
+<<echo=TRUE>>=
+16/(2/10)^2 / (1-0.30)
+power.t.test(delta=2, sd=10, power=0.80)$n / (1-0.30)
+@
+This doesn't account for information we get from follow-up prior to attrition. 
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Analytic sample size calculation for MMRM in R}
+{\footnotesize
+<<echo=TRUE>>=
+followup <- c(6,12,18,24,30,36)
+cc <- matrix(0.6, nrow=length(followup), ncol=length(followup))
+diag(cc) <- 1
+attrition_rate <- c(0, 15, 15, 20, 25, 30)/100
+longpower::power.mmrm(Ra=cc, ra=1-attrition_rate, sigmaa=10, delta=2, power=0.80)
+@
+}
+\end{frame}
+
+% \begin{frame}[fragile]
+% \frametitle{Let's simulate a hypothetical clinical trial$\ldots$}
+% Simulation \emph{reverses} the usual process of statistical modeling/estimation
+% \begin{itemize}
+%   \item Model fitting: Data + Model $\rightarrow$ Parameter Estimates
+%   \item Model simulation: Model + Parameter Estimates $\rightarrow$ Pseudo Data
+%   \item Given a reasonable model, everything can be simulated: mean, variance, missingness, etc.
+%   \item CAUTION: Simulations can only provide information about \emph{models}, but they cannot
+% provide information about \emph{reality}. \emph{Real data} is required for the latter.
+% \end{itemize}
+% \end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Let's simulate MMRM data from a hypothetical clinical trial$\ldots$}
+Parameters for mean structure:
+{\footnotesize
+<<mmrm_parameters_mean, eval=FALSE, echo=TRUE>>=
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Let's simulate MMRM data from a hypothetical clinical trial$\ldots$}
+Other parameters:
+{\footnotesize
+<<mmrm_parameters_other, eval=FALSE, echo=TRUE>>=
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Simulated MMRM power}
+{\scriptsize
+<<>>=
+set.seed(20170714)
+pvals <- rep(NA, 1000)
+txEffect <- rep(NA, 1000)
+@
+<<mmrm_sim_pow, echo=TRUE, eval=FALSE>>=
+for(i in 1:1000){  
+  trial <- arrange(design, id, month) %>%
+    mutate(
+      residual = as.numeric(t(
+        rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+      ADAS13.ch = round(ADAS13.ch.noResidual + residual, digits = 0)) %>%
+    filter(!missing)
+
+  trial_fit <- gls(ADAS13.ch ~ -1+ADAS13.bl+
+      (m6+m12+m18+m24+m30+m36)+
+      (m6+m12+m18+m24+m30+m36):active,
+    data=trial, correlation = corCompSymm(form = ~ visNo | id),
+    weights = varIdent(form = ~ 1 | m))
+  pvals[i] <- summary(trial_fit)$tTable['m36:active','p-value']
+  txEffect[i] <- summary(trial_fit)$tTable['m36:active','Value']
+}
+sum(pvals<0.05)/1000
+summary(txEffect)
+@
+<<eval=FALSE>>=
+save(pvals, txEffect, file='mmrm_power.rdata')
+@
+<<>>=
+load('mmrm_power.rdata')
+txEffect.pow <- txEffect
+cat('Power for MMRM:', sum(pvals<0.05)/1000)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Simulated MMRM Type I error}
+{\scriptsize
+<<>>=
+set.seed(20170714)
+pvals <- rep(NA, 1000)
+txEffect <- rep(NA, 1000)
+@
+<<mmrm_sim_alpha, echo=TRUE, eval=FALSE>>=
+for(i in 1:1000){  
+  trial <- arrange(design, id, month) %>%
+    mutate(
+      residual = as.numeric(t(
+        rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+      ADAS13.ch = round(ADAS13.ch.noResidual.noTxEffect + residual, digits = 0)) %>%
+    filter(!missing)
+
+  trial_fit <- gls(ADAS13.ch ~ -1+ADAS13.bl+
+      (m6+m12+m18+m24+m30+m36)+
+      (m6+m12+m18+m24+m30+m36):active,
+    data=trial, correlation = corCompSymm(form = ~ visNo | id),
+    weights = varIdent(form = ~ 1 | m))
+  pvals[i] <- summary(trial_fit)$tTable['m36:active','p-value']
+  txEffect[i] <- summary(trial_fit)$tTable['m36:active','Value']
+}
+sum(pvals<0.05)/1000
+summary(txEffect)
+@
+<<eval=FALSE>>=
+save(pvals, txEffect, file='mmrm_alpha.rdata')
+@
+<<>>=
+load('mmrm_alpha.rdata')
+txEffect.alpha <- txEffect
+cat('Type I error for MMMR:', sum(pvals<0.05)/1000)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM simulation summaries}
+<<>>=
+pd <- data.frame(
+    Simulation = 'Power',
+    Effect = txEffect.pow) %>% 
+  bind_rows(data.frame(
+    Simulation = 'Type I error',
+    Effect = txEffect.alpha)) %>% 
+  mutate(Simulation = factor(Simulation, levels = c('Type I error', 'Power')))
+ggplot(pd, aes(x=Simulation, y=Effect, color=Simulation)) +
+  geom_violin(aes(fill=Simulation), alpha=.1) +
+  geom_boxplot(outlier.colour=NA, width=.5) +
+  ylab('Estimated group contrast') +
+  xlab('') +
+  theme(legend.position='none')
+@
+\end{frame}
+
+\section[TTE]{Time-to-event}
+
+\begin{frame}[fragile]
+\frametitle{Time-to-dementia}
+\begin{itemize}
+  \item An alternative to MMRM is an analysis of time to progression to dementia
+  \item Outcome variable is distilled to
+  \begin{itemize}
+    \item time of conversion, for those who convert
+    \item time of last follow-up, for those who do not convert
+  \end{itemize}
+  \item No information about sub-conversion changes is used in analysis
+  \item In the ADCS trial of Donepezil in MCI (Petersen, et al. 2005), 
+    conversion was defined by a clinical criteria (McKhann, et al. 1984) reviewed by a central committee
+  \item The central committee reviewed data from the neuropsychological evaluation, but no specific point changes were required
+  \item The lack of specific rules makes it difficult to simulate simultaneous conversion events and assessment scores
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Sample size inflation for time-to-threshold vs ``slope model''}
+\begin{align}\label{eq:inflation}
+\psi = \frac{n_\PH}{n_\LM} = \frac{E_\PH}{rn_\LM} 
+& = \frac{(\theta_B-\theta_A)^2}{\xi r}
+    \log\Big(\frac{\log(P[T_A > t])}{\log(P[T_B > t])}\Big)^2
+\end{align}
+\begin{itemize}
+  \item $n_\PH$ and $n_\LM$ are sample size required for time-to-\emph{threshold} and ``slope model''
+  \item $\theta_B - \theta_A$ is group difference in slopes
+  \item $T_A$ \& $T_B$ represent the time-to-threshold for an individual randomized in groups $A$ \& $B$
+  \item Not a particularly simple ``rule of thumb''
+\end{itemize}
+\foot{Donohue, Gamst, Thomas, Xu, Beckett, Petersen, Weiner, \& Aisen. (2011). The relative efficiency of time-to-threshold and rate of change in longitudinal data. \emph{Contemporary clinical trials}, 32(5), 685-693.}
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Sample size inflation for time-to-threshold}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+  \begin{itemize}
+    \item $\psi =$ inflation factor
+    \item $c =$ threshold
+    \item $\theta_B = 0.1$
+    \item $\theta_A = \theta_B+\delta$
+    \item $\sigma = 0.5$ 
+    \item We could not find useful\\
+    scenarios where $\psi<1$ 
+  \end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}  %%<--- here
+    \begin{center}
+     \includegraphics[width=\textwidth]{coxvlmm-005.pdf}
+     \end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]  
+\frametitle{Simulated time-to-dementia vs slope models}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+  \begin{itemize}
+    \item Dementia ``algorithm'' learned from ADNI clinical diagnoses
+    \item Based on $\ADAScog$, $\CDRsb$, and $\FAQ$
+    \item Simultaneously simulated continuous outcomes and dementia events
+    \item Explored CSF defined A$\beta+$ MCI
+    \item Very larger sample size inflation at 80\% power
+  \end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}  %%<--- here
+    \begin{center}
+     \includegraphics[width=\textwidth]{figure-MVM_final.pdf}
+     \end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\section[Missing data]{Missing data}
+
+\begin{frame}[fragile]
+\frametitle{MMRM bias with informative missingness}
+\begin{itemize}
+  \item So far, our MMRM simulations have assumed data ``missing completely at random'' (MCAR)
+  \item Let's assume all ADAS-Cog change scores $\geq 12$ go missing
+  \item How bad are the MMRM estimates under this diabolical ``informative missingness''?
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM biased with informative missingness?}
+{\scriptsize
+<<>>=
+set.seed(20170714)
+pvals <- rep(NA, 1000)
+txEffect <- rep(NA, 1000)
+@
+<<mmrm_sim_mnar_pow, echo=TRUE, eval=FALSE>>=
+for(i in 1:1000){  
+  trial <- arrange(design, id, month) %>%
+    mutate(
+      residual = as.numeric(t(
+        rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+      ADAS13.ch = round(ADAS13.ch.noResidual + residual, digits = 0)) %>%
+    filter(ADAS13.ch<12)
+
+  trial_fit <- gls(ADAS13.ch ~ -1+ADAS13.bl+
+      (m6+m12+m18+m24+m30+m36)+
+      (m6+m12+m18+m24+m30+m36):active,
+    data=trial, correlation = corCompSymm(form = ~ visNo | id),
+    weights = varIdent(form = ~ 1 | m))
+  pvals[i] <- summary(trial_fit)$tTable['m36:active','p-value']
+  txEffect[i] <- summary(trial_fit)$tTable['m36:active','Value']
+}
+sum(pvals<0.05)/1000
+summary(txEffect)
+@
+<<eval=FALSE>>=
+save(pvals, txEffect, file='mmrm_mnar_pow.rdata')
+@
+<<>>=
+load('mmrm_mnar_pow.rdata')
+cat('Power:', sum(pvals<0.05)/1000)
+# summary(txEffect)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM biased with informative missingness?}
+Bias is about:
+<<echo=TRUE>>=
+summary(txEffect) - -2
+@
+\begin{itemize}
+  \item So, on average, treatment looks \Sexpr{summary(txEffect)['Mean'] - -2} ADAS points \emph{worse} compared to MAR.
+  \item Censoring ADAS13 change $\geq$ 12 results in attrition at 36 months of about 32\% for placebo vs 25\% for active. 
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM Type I error with informative missingness?}
+{\scriptsize
+<<>>=
+set.seed(20170714)
+pvals <- rep(NA, 1000)
+txEffect <- rep(NA, 1000)
+@
+<<mmrm_sim_mnar_alpha, echo=TRUE, eval=FALSE>>=
+for(i in 1:1000){  
+  trial <- arrange(design, id, month) %>%
+    mutate(
+      residual = as.numeric(t(
+        rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+      ADAS13.ch = round(ADAS13.ch.noResidual.noTxEffect + residual, digits = 0)) %>%
+    filter(ADAS13.ch<12)
+
+  trial_fit <- gls(ADAS13.ch ~ -1+ADAS13.bl+
+      (m6+m12+m18+m24+m30+m36)+
+      (m6+m12+m18+m24+m30+m36):active,
+    data=trial, correlation = corCompSymm(form = ~ visNo | id),
+    weights = varIdent(form = ~ 1 | m))
+  pvals[i] <- summary(trial_fit)$tTable['m36:active','p-value']
+  txEffect[i] <- summary(trial_fit)$tTable['m36:active','Value']
+}
+sum(pvals<0.05)/1000
+summary(txEffect)
+@
+<<eval=FALSE>>=
+save(pvals, txEffect, file='mmrm_mnar_alpha.rdata')
+@
+<<>>=
+load('mmrm_mnar_alpha.rdata')
+cat('Type I error:', sum(pvals<0.05)/1000)
+# summary(txEffect)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM bias with \emph{imbalanced} informative missingness}
+\begin{itemize}
+  \item What about tolerability?
+  \item Let's assume all ADAS-Cog change scores $\geq 16$ go missing \textbf{only in the active group}.
+  \item How bad are the MMRM estimates now?
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM bias with \emph{imbalanced} informative missingness}
+{\scriptsize
+<<>>=
+set.seed(20170714)
+pvals <- rep(NA, 1000)
+txEffect <- rep(NA, 1000)
+@
+<<mmrm_sim_mnartol_pow, echo=TRUE, eval=FALSE>>=
+for(i in 1:1000){  
+  trial <- arrange(design, id, month) %>%
+    mutate(
+      residual = as.numeric(t(
+        rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+      ADAS13.ch = round(ADAS13.ch.noResidual + residual, digits = 0)) %>%
+    filter(ADAS13.ch<18 | active==0)
+
+  trial_fit <- gls(ADAS13.ch ~ -1+ADAS13.bl+
+      (m6+m12+m18+m24+m30+m36)+
+      (m6+m12+m18+m24+m30+m36):active,
+    data=trial, correlation = corCompSymm(form = ~ visNo | id),
+    weights = varIdent(form = ~ 1 | m))
+  pvals[i] <- summary(trial_fit)$tTable['m36:active','p-value']
+  txEffect[i] <- summary(trial_fit)$tTable['m36:active','Value']
+}
+sum(pvals<0.05)/1000
+summary(txEffect)
+@
+<<eval=FALSE>>=
+save(pvals, txEffect, file='mmrm_mnartol_pow.rdata')
+@
+<<>>=
+load('mmrm_mnartol_pow.rdata')
+cat('Power:', sum(pvals<0.05)/1000)
+# summary(txEffect)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM bias with \emph{imbalanced} informative missingness}
+Bias is about:
+<<echo=TRUE>>=
+summary(txEffect) - -2
+@
+\begin{itemize}
+  \item So, on average, treatment looks \Sexpr{summary(txEffect)['Mean'] - -2} ADAS points \emph{better} compared to MAR.
+  \item Censoring ADAS13 change $\geq$ 18 only in active group results in attrition at 36 months of about 0\% for placebo vs 10\% for active in simulation for power (15\% for active in simulation for Type I error).  
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{MMRM Type I error with \emph{imbalanced} informative missingness?}
+{\scriptsize
+<<>>=
+set.seed(20170714)
+pvals <- rep(NA, 1000)
+txEffect <- rep(NA, 1000)
+@
+<<mmrm_sim_mnartol_alpha, echo=TRUE, eval=FALSE>>=
+for(i in 1:1000){  
+  trial <- arrange(design, id, month) %>%
+    mutate(
+      residual = as.numeric(t(
+        rmvnorm(length(unique(design$id)), mean=rep(0,nrow(vv)), sigma=SD^2*vv%*%cc%*%vv))),
+      ADAS13.ch = round(ADAS13.ch.noResidual.noTxEffect + residual, digits = 0)) %>%
+    filter(ADAS13.ch<18 | active==0)
+
+  trial_fit <- gls(ADAS13.ch ~ -1+ADAS13.bl+
+      (m6+m12+m18+m24+m30+m36)+
+      (m6+m12+m18+m24+m30+m36):active,
+    data=trial, correlation = corCompSymm(form = ~ visNo | id),
+    weights = varIdent(form = ~ 1 | m))
+  pvals[i] <- summary(trial_fit)$tTable['m36:active','p-value']
+  txEffect[i] <- summary(trial_fit)$tTable['m36:active','Value']
+}
+sum(pvals<0.05)/1000
+summary(txEffect)
+@
+<<eval=FALSE>>=
+save(pvals, txEffect, file='mmrm_mnartol_alpha.rdata')
+@
+<<>>=
+load('mmrm_mnartol_alpha.rdata')
+cat('Type I error:', sum(pvals<0.05)/1000)
+# summary(txEffect)
+@
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Take home}
+\begin{itemize}
+  \item Start with simple calculations to approximate power/sample size
+  \item Next, use fancier calculations when available
+  \item Simulate when assumptions of the fancy calculations are not met
+  \item Better to discover design problems in simulations, rather than during trial
+  \item Do not dichotomize unless absolutely necessary!
+  \item Be wary of MNAR!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Further reading}
+{\scriptsize
+\begin{itemize}
+  \item Van Belle, G. (2011). \emph{Statistical Tules of Thumb}. John Wiley \& Sons.
+  \item Mallinckrodt, C.H., et al. (2003). Assessing and interpreting treatment effects in longitudinal clinical trials with missing data. \emph{Biological Psychiatry}, 53(8), 754-760.
+  \item Pinheiro, J.C., \& Bates, D.M. (2000). \emph{Mixed-Effects Models in S and S-PLUS}. Springer.
+  \item Lu, K. (2010). On efficiency of constrained longitudinal data analysis versus longitudinal analysis of covariance. \emph{Biometrics}, 66(3), 891-896.
+  \item Donohue, M.C. and Aisen, P. S. (2012). Mixed model of repeated measures versus slope models in Alzheimer's disease clinical trials. \emph{The Journal of Nutrition, Health \& Aging}. 16(4), 360-364.
+  \item McKhann G, Drachman D, Folstein M, Katzman R, Price D, Stadlan EM. Clinical diagnosis of Alzheimer's disease: report of the NINCDS-ADRDA Work Group under the auspices of Department of Health and Human Services Task Force on Alzheimer's Disease. \emph{Neurology} 1984;34:939-44.
+  \item Lu, Luo, \& Chen. (2008). Sample size estimation for repeated measures analysis in randomized clinical trials with missing data. \emph{The International Journal of Biostatistics}, 4(1).
+\end{itemize}
+}
+\end{frame}
+
+% \begin{frame}[fragile]
+% \centering
+% \Huge{Thank you!}
+% \end{frame}
+
+\end{document}
